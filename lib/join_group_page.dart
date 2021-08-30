@@ -18,13 +18,13 @@ class Topic extends StateNotifier<String?> {
   void updateTopic(String topic) => state = topic;
 }
 
-final topicProvider = StateNotifierProvider<Topic, String?>((_) => Topic());
+final topicProvider = StateNotifierProvider.autoDispose<Topic, String?>((_) => Topic());
 
 class ErrorText extends StateNotifier<String?> {
   ErrorText(): super(null);
   void updateErrorText(String? text) => state = text;
 }
-final codeErrorProvider = StateNotifierProvider<ErrorText, String?>((_) => ErrorText());
+final codeErrorProvider = StateNotifierProvider.autoDispose<ErrorText, String?>((_) => ErrorText());
 
 class JoinGroupPage extends ConsumerWidget {
   TextEditingController codeController = TextEditingController();
@@ -37,8 +37,11 @@ class JoinGroupPage extends ConsumerWidget {
     final notifier = watch(topicProvider.notifier);
     final codeErrorNotifier = watch(codeErrorProvider.notifier);
     return Scaffold(
+      backgroundColor: const Color(0xFF262626),
       appBar: AppBar(
-        title: const Text('Join Group'),
+        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: const Color(0xFF262626),
+        title: const Text('Join Group', style: TextStyle(color: Colors.white)),
       ),
       drawer: Drawer(
           child: ListView(
@@ -69,14 +72,16 @@ class JoinGroupPage extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Choose a topic:', style: TextStyle(fontSize: 18)),
+            const Text('Choose a topic:', style: TextStyle(fontSize: 18, color: Colors.white)),
             DropdownButton(
                 value: topic,
+                dropdownColor: Colors.black,
                 onChanged: (String? value) {
                   if(value != null) {
                     notifier.updateTopic(value);
                   }
                 },
+                style: const TextStyle(color: Colors.white),
                 items: teams.map((String item) => DropdownMenuItem(
                   child: Text(item),
                   value: item,
@@ -93,13 +98,13 @@ class JoinGroupPage extends ConsumerWidget {
               },
             ),
             const SizedBox(height: 15),
-            const Text('-- or --'),
+            const Text('-- or --', style: TextStyle(color: Colors.white)),
             const SizedBox(height: 15),
-            const Text('Join group by code:', style: TextStyle(fontSize: 18)),
+            const Text('Join group by code:', style: TextStyle(fontSize: 18, color: Colors.white)),
             const SizedBox(height: 5),
             Container(
               decoration: const BoxDecoration(
-                border: Border.fromBorderSide(BorderSide(width: 1.5))
+                border: Border.fromBorderSide(BorderSide(width: 1.5, color: Colors.white))
               ),
               width: 200,
               child: TextField(
@@ -112,7 +117,7 @@ class JoinGroupPage extends ConsumerWidget {
                 ],
                 textAlign: TextAlign.center,
                 maxLength: 8,
-                style: const TextStyle(fontSize: 18),
+                style: const TextStyle(fontSize: 18, color: Colors.white),
                 controller: codeController,
               ),
             ),

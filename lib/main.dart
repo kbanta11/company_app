@@ -1,4 +1,6 @@
-import 'package:company_app/providers/auth_providers.dart';
+import 'package:flutter/services.dart';
+
+import 'providers/auth_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -33,11 +35,14 @@ class MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        statusBarColor: Colors.white,
+    ));
     return MaterialApp(
       navigatorObservers: [observer],
       title: 'The Company App',
       theme: ThemeData(
-        primarySwatch: Colors.blueGrey,
+        primarySwatch: Colors.grey,
       ),
       home: FutureBuilder(
           future: Firebase.initializeApp(),
@@ -89,8 +94,11 @@ class MyHomePage extends ConsumerWidget {
     AppUser? currentUser = watch(appUserProvider).data?.value;
     FirebaseAnalytics().setCurrentScreen(screenName: 'home_page');
     return Scaffold(
+      backgroundColor: const Color(0xFF262626),
       appBar: AppBar(
-        title: const Text('My Company'),
+        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: const Color(0xFF262626),
+        title: const Text('My Company', style: TextStyle(color: Colors.white),),
       ),
       drawer: Drawer(
         child: ListView(
@@ -134,6 +142,7 @@ class MyHomePage extends ConsumerWidget {
               )] : myGroups.map((Group group) {
                 return InkWell(
                   child: Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                     elevation: 5.0,
                     child: Container(
                         padding: const EdgeInsets.all(15),

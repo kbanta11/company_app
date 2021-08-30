@@ -1,4 +1,4 @@
-import 'package:company_app/signup_page.dart';
+import 'signup_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
@@ -55,6 +55,7 @@ class SignInPage extends ConsumerWidget {
     SignInData signInData = watch(signinProvider);
     SignInNotifier notifier = watch(signinProvider.notifier);
     return Scaffold(
+      backgroundColor: const Color(0xFF262626),
       body: Center(
         child: Container(
           padding: const EdgeInsets.all(10),

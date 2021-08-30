@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 import 'dart:io';
-import 'package:company_app/signin_page.dart';
+import 'signin_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,8 +27,11 @@ class GroupPage extends ConsumerWidget {
     AppUser? currentUser = watch(appUserProvider).data?.value;
     FirebaseAnalytics().setCurrentScreen(screenName: 'group_page');
     return Scaffold(
+      backgroundColor: const Color(0xFF262626),
       appBar: AppBar(
-        title: Text(group?.topic ?? 'Company'),
+        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: const Color(0xFF262626),
+        title: Text(group?.topic ?? 'Company', style: const TextStyle(color: Colors.white)),
         actions: [
           IconButton(
             icon: const Icon(Icons.people_alt_rounded),
@@ -108,7 +111,7 @@ class GroupPage extends ConsumerWidget {
           if(!snap.hasData || (snap.data?.isEmpty ?? false)) {
             return Column(
               children: [
-                const Expanded(child: Center(child: Text('Send the first message to your group!'))),
+                const Expanded(child: Center(child: Text('Send the first message to your group!', style: TextStyle(color: Colors.white)))),
                 EnterMessageWidget(group: group, appUser: currentUser,),
               ],
             );
@@ -185,9 +188,9 @@ class GroupPage extends ConsumerWidget {
                         messageIndex == snap.data!.length - 1 ? Row(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            Text(message.senderName!, style: const TextStyle(fontSize: 18),),
+                            Text(message.senderName!, style: const TextStyle(fontSize: 18, color: Colors.white),),
                             const SizedBox(width: 10),
-                            Text(DateFormat('MMMM d, yyyy h:mm').format(message.dateSent!))
+                            Text(DateFormat('MMMM d, yyyy h:mm').format(message.dateSent!), style: const TextStyle(color: Colors.grey))
                           ],
                         ) : Container(),
                         messageCard,
@@ -196,9 +199,9 @@ class GroupPage extends ConsumerWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.start,
                             children: [
-                              Text(lastSenderName!, style: const TextStyle(fontSize: 18),),
+                              Text(lastSenderName!, style: const TextStyle(fontSize: 18, color: Colors.white),),
                               const SizedBox(width: 10),
-                              Text(DateFormat('MMMM d, yyyy h:mm a').format(lastMessageTime!))
+                              Text(DateFormat('MMMM d, yyyy h:mm a').format(lastMessageTime!), style: const TextStyle(color: Colors.grey))
                             ],
                           ),
                         ) : Container(),
@@ -225,7 +228,7 @@ class ImageFile extends StateNotifier<XFile?> {
   ImageFile(): super(null);
   void updateFile(XFile? file) => state = file;
 }
-final fileProvider = StateNotifierProvider<ImageFile, XFile?>((_) => ImageFile());
+final fileProvider = StateNotifierProvider.autoDispose<ImageFile, XFile?>((_) => ImageFile());
 
 class EnterMessageWidget extends ConsumerWidget {
   final Group? group;
@@ -242,55 +245,74 @@ class EnterMessageWidget extends ConsumerWidget {
   build(BuildContext context, ScopedReader watch) {
     XFile? file = watch(fileProvider);
     final notifier = watch(fileProvider.notifier);
-    return Column(
-      children: [
-        file != null ? Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
-          child: Image.file(File(file.path)),
-        ) : const SizedBox(height: 0, width: 0),
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.image),
-              onPressed: () async {
-                XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-                notifier.updateFile(selectedFile);
-              },
+    return Container(
+      color: Colors.grey,
+      child: Column(
+        children: [
+          file != null ? Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+            child: Container(
+              height: 250,
+              child: Stack(
+                children: [
+                  Image.file(File(file.path), fit: BoxFit.fitHeight,),
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: IconButton(
+                      icon: Icon(Icons.close_rounded),
+                      onPressed: () {
+                        notifier.updateFile(null);
+                      },
+                    ),
+                  )
+                ]
+              )
             ),
-            IconButton(
-              icon: const Icon(Icons.camera_alt_rounded),
-              onPressed: () async {
-                XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.camera);
-                notifier.updateFile(selectedFile);
-              },
-            ),
-            Expanded(
-                child: TextField(
-                  decoration: const InputDecoration(hintText: 'Enter your message'),
-                  controller: _messageController,
-                )
-            ),
-            IconButton(
-              icon: const Icon(Icons.send_rounded),
-              onPressed: () async {
-                if(_messageController.value.text == '' && file == null) {
-                  return;
-                }
-                //send message to database
-                FirebaseAnalytics().logEvent(name: 'send_message', parameters: {
-                  'group_id': group?.id,
-                  'group_topic': group?.topic,
-                  'sender_id': appUser?.id,
-                  'has_image': file == null ? false : true,
-                  'event_date': DateTime.now().millisecondsSinceEpoch
-                });
-                await DatabaseServices().sendMessageToGroup(groupId: group?.id, senderId: appUser?.id, senderName: appUser?.name, message: _messageController.value.text, file: file);
-                notifier.updateFile(null);
-              },
-            )
-          ],
-        )
-      ],
+          ) : const SizedBox(height: 0, width: 0),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.image),
+                onPressed: () async {
+                  XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+                  notifier.updateFile(selectedFile);
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.camera_alt_rounded),
+                onPressed: () async {
+                  XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.camera);
+                  notifier.updateFile(selectedFile);
+                },
+              ),
+              Expanded(
+                  child: TextField(
+                    decoration: const InputDecoration(hintText: 'Enter your message'),
+                    controller: _messageController,
+                  )
+              ),
+              IconButton(
+                icon: const Icon(Icons.send_rounded),
+                onPressed: () async {
+                  if(_messageController.value.text == '' && file == null) {
+                    return;
+                  }
+                  //send message to database
+                  FirebaseAnalytics().logEvent(name: 'send_message', parameters: {
+                    'group_id': group?.id,
+                    'group_topic': group?.topic,
+                    'sender_id': appUser?.id,
+                    'has_image': file == null ? false : true,
+                    'event_date': DateTime.now().millisecondsSinceEpoch
+                  });
+                  await DatabaseServices().sendMessageToGroup(groupId: group?.id, senderId: appUser?.id, senderName: appUser?.name, message: _messageController.value.text, file: file);
+                  notifier.updateFile(null);
+                },
+              )
+            ],
+          )
+        ],
+      ),
     );
   }
 }

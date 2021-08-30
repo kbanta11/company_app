@@ -1,5 +1,5 @@
-import 'package:company_app/main.dart';
-import 'package:company_app/services/database_services.dart';
+import 'main.dart';
+import 'services/database_services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -81,6 +81,7 @@ class SignUpPage extends ConsumerWidget {
     NewUserData userData = watch(signupProvider);
     NewUserDataNotifier notifier = watch(signupProvider.notifier);
     return Scaffold(
+      backgroundColor: const Color(0xFF262626),
       body: Center(
         child: Container(
           padding: const EdgeInsets.all(40),
@@ -159,7 +160,7 @@ class SignUpPage extends ConsumerWidget {
                               onPressed: onStepContinue,
                             ),
                             userData.currentStep != 0 ? TextButton(
-                              child: const Text('Back', style: TextStyle(fontSize: 18, color: Colors.blueGrey)),
+                              child: const Text('Back', style: TextStyle(fontSize: 18, color: Colors.white)),
                               onPressed: onStepCancel,
                             ) : Container(),
                           ],
@@ -167,31 +168,35 @@ class SignUpPage extends ConsumerWidget {
                       },
                       steps: [
                         Step(
-                            title: const Text('Choose a Team'),
+                            title: const Text('Choose a Team', style: TextStyle(color: Colors.white)),
                             content: Column(
                                 children: [
                                   DropdownButton(
+                                    dropdownColor: Colors.black,
                                       value: userData.topic,
                                       onChanged: (String? value) {
                                         notifier.changeTopic(value ?? userData.topic!);
                                       },
+                                      style: const TextStyle(color: Colors.white),
                                       items: teams.map((String item) => DropdownMenuItem(
                                         child: Text(item),
                                         value: item,
                                       )).toList()
                                   ),
                                   const SizedBox(height: 5),
-                                  const Text('-- OR --'),
+                                  const Text('-- OR --', style: TextStyle(color: Colors.white)),
                                   const SizedBox(height: 5),
                                   TextField(
                                     decoration: InputDecoration(
                                       hintText: 'Enter Group Code',
+                                      hintStyle: const TextStyle(color: Colors.grey),
                                       errorText: userData.groupCodeError,
+                                      counterStyle: const TextStyle(color: Colors.white),
                                     ),
                                     inputFormatters: [
                                       UpperCaseTextFormatter()
                                     ],
-                                    style: const TextStyle(fontSize: 18),
+                                    style: const TextStyle(fontSize: 18, color: Colors.white),
                                     maxLength: 8,
                                     onChanged: (value) {
                                       notifier.changeGroupCode(value);
@@ -201,9 +206,12 @@ class SignUpPage extends ConsumerWidget {
                             )
                         ),
                         Step(
-                            title: const Text('Enter your email'),
+                            title: const Text('Enter your email', style: TextStyle(color: Colors.white)),
+                            subtitle: const Text('We\'ll email you to set your password!', style: TextStyle(color: Colors.grey)),
                             content: TextField(
+                              style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
                                   errorText: userData.showEmailError ? 'Enter a valid email address' : null
                               ),
                               onChanged: (value) {
@@ -212,8 +220,12 @@ class SignUpPage extends ConsumerWidget {
                             )
                         ),
                         Step(
-                            title: const Text('Enter your first name and last initial'),
+                            title: const Text('Enter your first name and last initial', style: TextStyle(color: Colors.white)),
                             content: TextField(
+                              decoration: const InputDecoration(
+                                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                              ),
+                              style: const TextStyle(color: Colors.white),
                               onChanged: (value) {
                                 notifier.changeName(value);
                               },
@@ -223,10 +235,10 @@ class SignUpPage extends ConsumerWidget {
                   ),
                   Column(
                       children: [
-                        const Text('Already have an account?'),
+                        const Text('Already have an account?', style: TextStyle(color: Colors.white)),
                         TextButton(
                           style: TextButton.styleFrom(textStyle: const TextStyle(fontSize: 18)),
-                          child: const Text('Sign In'),
+                          child: const Text('Sign In', style: TextStyle(color: Colors.white)),
                           onPressed: () {
                             Navigator.push(context, MaterialPageRoute(builder: (context) => SignInPage()));
                           },
