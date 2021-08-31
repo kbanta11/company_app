@@ -216,6 +216,7 @@ class GroupPage extends ConsumerWidget {
               ),
               const SizedBox(height: 5),
               EnterMessageWidget(group: group, appUser: currentUser,),
+              Platform.isIOS ? SizedBox(height: 10) : Container()
             ],
           );
         }
