@@ -106,7 +106,7 @@ class SignUpPage extends ConsumerWidget {
                             } else {
                               //if group code is entered, but doesn't exist, show error on field and return
                               print('setting error');
-                              notifier.setGroupCodeError('Group does not exist!');
+                              notifier.setGroupCodeError('Group does not exist or is full!');
                               return;
                             }
                           }

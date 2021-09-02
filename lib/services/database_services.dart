@@ -34,6 +34,25 @@ class DatabaseServices {
     return docRef.snapshots().map((DocumentSnapshot snap) => AppUser.fromFirestore(snap));
   }
 
+  Future<void> leaveGroup({Group? group, AppUser? user}) async {
+    DocumentReference groupRef = db.collection('groups').doc(group!.id);
+    DocumentReference userRef = db.collection('users').doc(user!.id);
+
+    WriteBatch batch = db.batch();
+    //remove user id from list of members and decrement number of members for group
+    group.members?.removeWhere((element) => element == user.id);
+    batch.update(groupRef, {
+      'members': group.members,
+      'num_members': group.numMembers! - 1,
+    });
+    //remove group id from users list of groups
+    user.groups?.removeWhere((element) => element == group.id);
+    batch.update(userRef, {
+      'groups': user.groups
+    });
+    await batch.commit();
+  }
+
   Future<Group> joinGroup({String? topic, String? userId, String? userName}) async {
     Group group;
     //get all groups for this topic that have less than 8 members
@@ -115,7 +134,7 @@ class DatabaseServices {
 
   Future<Group?> joinGroupWithCode({String? code, String? userId}) async {
     //get group with matching code
-    Group? group = await db.collection('groups').where('code', isEqualTo: code).snapshots().first.then((snap) {
+    Group? group = await db.collection('groups').where('code', isEqualTo: code).where('num_members', isLessThan: 8).snapshots().first.then((snap) {
       if(snap.docs.isEmpty) {
         return null;
       }

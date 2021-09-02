@@ -129,7 +129,7 @@ class JoinGroupPage extends ConsumerWidget {
                 if(codeController.value.text.length == 8) {
                   Group? newGroup = await DatabaseServices().joinGroupWithCode(code: codeController.value.text, userId: currentUser?.id);
                   if(newGroup == null) {
-                    codeErrorNotifier.updateErrorText('Group Not Found!');
+                    codeErrorNotifier.updateErrorText('Group is full or was not found!');
                   } else {
                     Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => GroupPage(group: newGroup,)));
                   }

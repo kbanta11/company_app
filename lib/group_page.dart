@@ -51,6 +51,15 @@ class GroupPage extends ConsumerWidget {
                     title: const Center(child: Text('Members')),
                     children: [
                       Center(child: SelectableText('Group Code: ${group?.code}', style: const TextStyle(fontSize: 16, color: Colors.black54))),
+                      Center(
+                        child: TextButton(
+                          child: const Text('Leave Group', style: TextStyle(color: Colors.black)),
+                          onPressed: () async {
+                            await DatabaseServices().leaveGroup(group: group, user: currentUser);
+                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MyHomePage()));
+                          },
+                        ),
+                      ),
                       SingleChildScrollView(
                         child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -63,6 +72,9 @@ class GroupPage extends ConsumerWidget {
                                   }
                                   return ListTile(
                                     title: Text(userSnap.data!.name!),
+                                    onTap: () {
+                                      //go to message page with this user
+                                    },
                                   );
                                 },
                               );
@@ -230,6 +242,7 @@ class ImageFile extends StateNotifier<XFile?> {
   void updateFile(XFile? file) => state = file;
 }
 final fileProvider = StateNotifierProvider.autoDispose<ImageFile, XFile?>((_) => ImageFile());
+final _menuKey = GlobalKey<PopupMenuButtonState>();
 
 class EnterMessageWidget extends ConsumerWidget {
   final Group? group;
@@ -247,7 +260,7 @@ class EnterMessageWidget extends ConsumerWidget {
     XFile? file = watch(fileProvider);
     final notifier = watch(fileProvider.notifier);
     return Container(
-      color: Colors.grey,
+      padding: const EdgeInsets.only(bottom: 5),
       child: Column(
         children: [
           file != null ? Padding(
@@ -272,28 +285,86 @@ class EnterMessageWidget extends ConsumerWidget {
           ) : const SizedBox(height: 0, width: 0),
           Row(
             children: [
+              Listener(
+                onPointerDown: (_) async {
+                  if (FocusScope.of(context).hasFocus) {
+                    FocusScope.of(context).unfocus();
+                    await Future.delayed(const Duration(milliseconds: 400));
+                  }
+                  _menuKey.currentState?.showButtonMenu();
+                },
+                child: PopupMenuButton(
+                  key: _menuKey,
+                  enabled: false,
+                  icon: const Icon(Icons.add_rounded, color: Colors.white),
+                  offset: const Offset(0, -115),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  onSelected: (value) async {
+                    if(value == 'gallery') {
+                      XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+                      notifier.updateFile(selectedFile);
+                    } else {
+                      XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.camera);
+                      notifier.updateFile(selectedFile);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                        value: 'gallery',
+                        child: Row(
+                            children: const <Widget>[
+                              Icon(Icons.image),
+                              SizedBox(width: 5),
+                              Text('Gallery')
+                            ]
+                        )
+                    ),
+                    PopupMenuItem(
+                        value: 'camera',
+                        child: Row(
+                            children: const <Widget>[
+                              Icon(Icons.camera_alt_rounded),
+                              SizedBox(width: 5),
+                              Text('Camera')
+                            ]
+                        )
+                    ),
+                  ],
+                ),
+              ),
+              /*
               IconButton(
-                icon: const Icon(Icons.image),
+                icon: const Icon(Icons.image, color: Colors.white),
                 onPressed: () async {
                   XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
                   notifier.updateFile(selectedFile);
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.camera_alt_rounded),
+                icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
                 onPressed: () async {
                   XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.camera);
                   notifier.updateFile(selectedFile);
                 },
               ),
+              */
               Expanded(
-                  child: TextField(
-                    decoration: const InputDecoration(hintText: 'Enter your message'),
-                    controller: _messageController,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(25),
+                      color: Colors.white
+                    ),
+                    child: TextField(
+                      maxLines: 6,
+                      minLines: 1,
+                      decoration: const InputDecoration(hintText: 'Enter your message', border: InputBorder.none, focusedBorder: InputBorder.none),
+                      controller: _messageController,
+                    )
                   )
               ),
               IconButton(
-                icon: const Icon(Icons.send_rounded),
+                icon: const Icon(Icons.send_rounded, color: Colors.white),
                 onPressed: () async {
                   if(_messageController.value.text == '' && file == null) {
                     return;
