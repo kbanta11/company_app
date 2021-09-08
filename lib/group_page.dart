@@ -179,6 +179,7 @@ class GroupPage extends ConsumerWidget {
               children: [
                 const Expanded(child: Center(child: Text('Send the first message to your group!', style: TextStyle(color: Colors.white)))),
                 EnterMessageWidget(group: group, appUser: currentUser,),
+                Platform.isIOS ? const SizedBox(height: 15) : Container()
               ],
             );
           }
@@ -287,7 +288,7 @@ class GroupPage extends ConsumerWidget {
               ),
               const SizedBox(height: 5),
               EnterMessageWidget(group: group, appUser: currentUser,),
-              Platform.isIOS ? const SizedBox(height: 10) : Container()
+              Platform.isIOS ? const SizedBox(height: 15) : Container()
             ],
           );
         }

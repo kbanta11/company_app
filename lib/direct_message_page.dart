@@ -75,6 +75,7 @@ class DirectMessagePage extends ConsumerWidget {
         children: [
           const Expanded(child: Center(child: Text('Start the conversation!', style: TextStyle(color: Colors.white)))),
           EnterDirectMessageWidget(currentUser: currentUser, targetUser: targetUser,),
+          Platform.isIOS ? const SizedBox(height: 15) : Container()
         ],
       ) : StreamBuilder<List<DirectMessage>>(
           stream: DatabaseServices().streamDirectMessages(conversationId: conversation.id),
@@ -87,6 +88,7 @@ class DirectMessagePage extends ConsumerWidget {
                 children: [
                   const Expanded(child: Center(child: Text('Start the conversation!', style: TextStyle(color: Colors.white)))),
                   EnterDirectMessageWidget(conversation: conversation, currentUser: currentUser, targetUser: targetUser,),
+                  Platform.isIOS ? const SizedBox(height: 15) : Container()
                 ],
               );
             }
@@ -201,7 +203,7 @@ class DirectMessagePage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 5),
                 EnterDirectMessageWidget(conversation: conversation, currentUser: currentUser, targetUser: targetUser,),
-                Platform.isIOS ? const SizedBox(height: 10) : Container()
+                Platform.isIOS ? const SizedBox(height: 15) : Container()
               ],
             );
           }

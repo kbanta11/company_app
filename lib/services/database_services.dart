@@ -253,13 +253,23 @@ class DatabaseServices {
   }
 
   Future<Conversation?> getConversationFromMembers(List<AppUser?> members) {
-    return db.collection('direct-messages').where('members', isEqualTo: members.map((member) => member?.id).toList()).get().then((event) {
+    Query query = db.collection('direct-messages');
+    for(AppUser? member in members) {
+      query = query.where('members', arrayContains: member?.id);
+    }
+    return query.get().then((event) {
       return event.docs.isNotEmpty ? event.docs.map((qs) => Conversation.fromFirestore(qs)).first : null;
     });
   }
 
   Stream<Conversation?> streamConversationFromMembers(List<AppUser?> members) {
-    return db.collection('direct-messages').where('members', isEqualTo: members.map((member) => member?.id).toList()).snapshots().map((event) {
+    Query query = db.collection('direct-messages');
+    for(AppUser? member in members) {
+      query = query.where('members', arrayContains: member?.id);
+    }
+    print('query: ${query.toString()}');
+    return query.snapshots().map((event) {
+      print('event: ${event.docs}');
       return event.docs.isNotEmpty ? event.docs.map((snap) => Conversation.fromFirestore(snap)).first : null;
     });
   }
