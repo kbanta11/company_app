@@ -5,6 +5,7 @@ import 'formatters/upper_case_formatter.dart';
 import 'signin_page.dart';
 import 'main.dart';
 import 'group_page.dart';
+import 'inbox_page.dart';
 import 'services/database_services.dart';
 import 'models/user_model.dart';
 import 'models/group_model.dart';
@@ -56,6 +57,12 @@ class JoinGroupPage extends ConsumerWidget {
                     title: const Text('Join Another Group'),
                     onTap: () {
 
+                    }
+                ),
+                ListTile(
+                    title: const Text('Messages'),
+                    onTap: () {
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => InboxPage()));
                     }
                 ),
                 ListTile(

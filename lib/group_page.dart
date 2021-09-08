@@ -1,5 +1,7 @@
 import 'package:intl/intl.dart';
 import 'dart:io';
+import 'direct_message_page.dart';
+import 'models/direct_message_models.dart';
 import 'signin_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
@@ -9,13 +11,16 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'models/group_model.dart';
 import 'services/auth_services.dart';
 import 'services/database_services.dart';
 import 'models/user_model.dart';
 import 'providers/auth_providers.dart';
+import 'providers/image_select_provider.dart';
 import 'main.dart';
 import 'join_group_page.dart';
+import 'inbox_page.dart';
 
 class GroupPage extends ConsumerWidget {
   Group? group;
@@ -55,8 +60,48 @@ class GroupPage extends ConsumerWidget {
                         child: TextButton(
                           child: const Text('Leave Group', style: TextStyle(color: Colors.black)),
                           onPressed: () async {
-                            await DatabaseServices().leaveGroup(group: group, user: currentUser);
-                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MyHomePage()));
+                            await showDialog(
+                              context: context,
+                              builder: (context) {
+                                return SimpleDialog(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                                  contentPadding: const EdgeInsets.all(10),
+                                  title: const Center(child: Text('Are You Sure?')),
+                                  children: [
+                                    const Text('Are you sure you want to leave this group?', textAlign: TextAlign.center,),
+                                    const SizedBox(height: 30),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        TextButton(
+                                          child: const Text('Cancel'),
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                        ),
+                                        TextButton(
+                                          style: TextButton.styleFrom(backgroundColor: Colors.blueGrey),
+                                          child: const Text('Leave Group', style: TextStyle(color: Colors.white)),
+                                          onPressed: () async {
+                                            await DatabaseServices().leaveGroup(group: group, user: currentUser);
+                                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MyHomePage()));
+                                          },
+                                        )
+                                      ],
+                                    )
+                                  ]
+                                );
+                              }
+                            );
+                          },
+                        ),
+                      ),
+                      Center(
+                        child: TextButton(
+                          child: const Text('Invite Friends', style: TextStyle(color: Colors.black)),
+                          onPressed: () async {
+                            Share.share('Hey! You should join me in this group about ${group?.topic} on The Company App! Go to joincompany.io to install the app, and use the following code to join my group: ${group?.code}', subject: 'Join My ${group?.topic} group on The Company App');
+                            Navigator.of(context).pop();
                           },
                         ),
                       ),
@@ -72,8 +117,11 @@ class GroupPage extends ConsumerWidget {
                                   }
                                   return ListTile(
                                     title: Text(userSnap.data!.name!),
-                                    onTap: () {
+                                    onTap: () async {
                                       //go to message page with this user
+                                      if(userSnap.data!.id != currentUser?.id) {
+                                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => DirectMessagePage(userSnap.data!,)));
+                                      }
                                     },
                                   );
                                 },
@@ -103,6 +151,12 @@ class GroupPage extends ConsumerWidget {
                     onTap: () {
                       Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => JoinGroupPage()));
                     }
+                ),
+                ListTile(
+                  title: const Text('Messages'),
+                  onTap: () {
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => InboxPage()));
+                  }
                 ),
                 ListTile(
                     title: const Text('Logout'),
@@ -150,10 +204,15 @@ class GroupPage extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            message.hasImage && message.imageUrl != null ? CachedNetworkImage(
+                            message.hasImage && message.imageUrl != null ? ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxHeight: 450,
+                              ),
+                              child: CachedNetworkImage(
                                 imageUrl: message.imageUrl!,
-                              placeholder: (context, url) => const CircularProgressIndicator(),
-                              errorWidget: (context, url, error) => const Icon(Icons.error),
+                                placeholder: (context, url) => const Center(child: SizedBox(child: CircularProgressIndicator(), height: 50, width: 50)),
+                                errorWidget: (context, url, error) => const Icon(Icons.error),
+                              ),
                             ) : const SizedBox(width: 0, height: 0),
                             SelectableLinkify(
                                 linkStyle: message.senderId == currentUser.id ? const TextStyle(color: Colors.deepOrange) : null,
@@ -228,7 +287,7 @@ class GroupPage extends ConsumerWidget {
               ),
               const SizedBox(height: 5),
               EnterMessageWidget(group: group, appUser: currentUser,),
-              Platform.isIOS ? SizedBox(height: 10) : Container()
+              Platform.isIOS ? const SizedBox(height: 10) : Container()
             ],
           );
         }
@@ -237,11 +296,6 @@ class GroupPage extends ConsumerWidget {
   }
 }
 
-class ImageFile extends StateNotifier<XFile?> {
-  ImageFile(): super(null);
-  void updateFile(XFile? file) => state = file;
-}
-final fileProvider = StateNotifierProvider.autoDispose<ImageFile, XFile?>((_) => ImageFile());
 final _menuKey = GlobalKey<PopupMenuButtonState>();
 
 class EnterMessageWidget extends ConsumerWidget {
@@ -264,16 +318,16 @@ class EnterMessageWidget extends ConsumerWidget {
       child: Column(
         children: [
           file != null ? Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 5),
             child: Container(
               height: 250,
               child: Stack(
                 children: [
-                  Image.file(File(file.path), fit: BoxFit.fitHeight,),
+                  Center(child: Image.file(File(file.path), fit: BoxFit.fitHeight,)),
                   Align(
                     alignment: Alignment.topRight,
                     child: IconButton(
-                      icon: Icon(Icons.close_rounded),
+                      icon: const Icon(Icons.close_rounded, color: Colors.white,),
                       onPressed: () {
                         notifier.updateFile(null);
                       },
@@ -285,52 +339,56 @@ class EnterMessageWidget extends ConsumerWidget {
           ) : const SizedBox(height: 0, width: 0),
           Row(
             children: [
-              Listener(
-                onPointerDown: (_) async {
-                  if (FocusScope.of(context).hasFocus) {
-                    FocusScope.of(context).unfocus();
-                    await Future.delayed(const Duration(milliseconds: 400));
-                  }
-                  _menuKey.currentState?.showButtonMenu();
-                },
-                child: PopupMenuButton(
-                  key: _menuKey,
-                  enabled: false,
-                  icon: const Icon(Icons.add_rounded, color: Colors.white),
-                  offset: const Offset(0, -115),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  onSelected: (value) async {
-                    if(value == 'gallery') {
-                      XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-                      notifier.updateFile(selectedFile);
-                    } else {
-                      XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.camera);
-                      notifier.updateFile(selectedFile);
+              SizedBox(
+                height: 40,
+                width: 40,
+                child: Listener(
+                  onPointerDown: (_) async {
+                    if(FocusScope.of(context).hasFocus) {
+                      FocusScope.of(context).unfocus();
+                      await Future.delayed(const Duration(milliseconds: 400));
                     }
+                    _menuKey.currentState?.showButtonMenu();
                   },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                        value: 'gallery',
-                        child: Row(
-                            children: const <Widget>[
-                              Icon(Icons.image),
-                              SizedBox(width: 5),
-                              Text('Gallery')
-                            ]
-                        )
-                    ),
-                    PopupMenuItem(
-                        value: 'camera',
-                        child: Row(
-                            children: const <Widget>[
-                              Icon(Icons.camera_alt_rounded),
-                              SizedBox(width: 5),
-                              Text('Camera')
-                            ]
-                        )
-                    ),
-                  ],
-                ),
+                  child: PopupMenuButton(
+                    key: _menuKey,
+                    enabled: false,
+                    icon: const Icon(Icons.add_rounded, color: Colors.white),
+                    offset: const Offset(0, -115),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    onSelected: (value) async {
+                      if(value == 'gallery') {
+                        XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+                        notifier.updateFile(selectedFile);
+                      } else {
+                        XFile? selectedFile = await ImagePicker().pickImage(source: ImageSource.camera);
+                        notifier.updateFile(selectedFile);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                          value: 'gallery',
+                          child: Row(
+                              children: const <Widget>[
+                                Icon(Icons.image),
+                                SizedBox(width: 5),
+                                Text('Gallery')
+                              ]
+                          )
+                      ),
+                      PopupMenuItem(
+                          value: 'camera',
+                          child: Row(
+                              children: const <Widget>[
+                                Icon(Icons.camera_alt_rounded),
+                                SizedBox(width: 5),
+                                Text('Camera')
+                              ]
+                          )
+                      ),
+                    ],
+                  ),
+                )
               ),
               /*
               IconButton(
@@ -350,7 +408,7 @@ class EnterMessageWidget extends ConsumerWidget {
               */
               Expanded(
                   child: Container(
-                    padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
+                    padding: const EdgeInsets.fromLTRB(10, 0, 5, 0),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(25),
                       color: Colors.white

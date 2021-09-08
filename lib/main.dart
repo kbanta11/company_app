@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:the_company_app/services/database_services.dart';
 
 import 'providers/auth_providers.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'signup_page.dart';
 import 'signin_page.dart';
 import 'group_page.dart';
 import 'join_group_page.dart';
+import 'inbox_page.dart';
 import 'providers/auth_providers.dart';
 import 'providers/user_groups_provider.dart';
 import 'services/auth_services.dart';
@@ -112,8 +114,14 @@ class MyHomePage extends ConsumerWidget {
             ListTile(
               title: const Text('Join Another Group'),
               onTap: () {
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => JoinGroupPage()));
+                Navigator.push(context, MaterialPageRoute(builder: (context) => JoinGroupPage()));
               }
+            ),
+            ListTile(
+                title: const Text('Messages'),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => InboxPage()));
+                }
             ),
             ListTile(
               title: const Text('Logout'),

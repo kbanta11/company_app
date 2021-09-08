@@ -5,11 +5,18 @@ import 'package:image_picker/image_picker.dart';
 import 'package:nanoid/nanoid.dart';
 import '../models/user_model.dart';
 import '../models/group_model.dart';
+import '../models/direct_message_models.dart';
 import 'dart:math';
 
 class DatabaseServices {
   final FirebaseFirestore db = FirebaseFirestore.instance;
   final FirebaseStorage storage = FirebaseStorage.instance;
+
+  //User Functions
+  Future<AppUser> getAppUser(String userId) async {
+    return db.collection('users').doc(userId).get().then((snap) => AppUser.fromFirestore(snap));
+  }
+
   Future<void> createUser({String? id, String? name, String? email, String? firstTopic, String? code}) async {
     DocumentReference docRef = db.collection('users').doc(id);
     await db.runTransaction((transaction) {
@@ -34,6 +41,7 @@ class DatabaseServices {
     return docRef.snapshots().map((DocumentSnapshot snap) => AppUser.fromFirestore(snap));
   }
 
+  //Group Functions
   Future<void> leaveGroup({Group? group, AppUser? user}) async {
     DocumentReference groupRef = db.collection('groups').doc(group!.id);
     DocumentReference userRef = db.collection('users').doc(user!.id);
@@ -225,7 +233,75 @@ class DatabaseServices {
     return;
   }
 
-  Future<AppUser> getAppUser(String userId) async {
-    return db.collection('users').doc(userId).get().then((snap) => AppUser.fromFirestore(snap));
+  //Inbox/Messaging Functions
+  Stream<List<Conversation>> streamUserInbox(String? uid) {
+    return db.collection('direct-messages').where('members', arrayContains: uid).orderBy('last_post_date', descending: true).snapshots().map((event) {
+      return event.docs.map((snap) {
+        Conversation conversation = Conversation.fromFirestore(snap);
+        return conversation;
+      }).toList();
+    });
+  }
+
+  Stream<List<DirectMessage>> streamDirectMessages({String? conversationId}) {
+    return db.collection('direct-messages').doc(conversationId).collection('messages').orderBy('date_sent', descending: true).snapshots().map((event) {
+      return event.docs.map((snap) {
+        DirectMessage message = DirectMessage.fromFirestore(snap);
+        return message;
+      }).toList();
+    });
+  }
+
+  Future<Conversation?> getConversationFromMembers(List<AppUser?> members) {
+    return db.collection('direct-messages').where('members', isEqualTo: members.map((member) => member?.id).toList()).get().then((event) {
+      return event.docs.isNotEmpty ? event.docs.map((qs) => Conversation.fromFirestore(qs)).first : null;
+    });
+  }
+
+  Stream<Conversation?> streamConversationFromMembers(List<AppUser?> members) {
+    return db.collection('direct-messages').where('members', isEqualTo: members.map((member) => member?.id).toList()).snapshots().map((event) {
+      return event.docs.isNotEmpty ? event.docs.map((snap) => Conversation.fromFirestore(snap)).first : null;
+    });
+  }
+
+  Future<Conversation> createConversation(List<AppUser?> members) async {
+    DocumentReference newDocRef = db.collection('direct-messages').doc();
+    Map<String, dynamic> data = {
+      'id': newDocRef.id,
+      'members': members.map((user) => user?.id).toList(),
+      'member_map': members.map((user) => {'user_id': user?.id, 'unread_messages': 0, 'name': user?.name,}).toList(),
+      'last_post_date': DateTime.now(),
+    };
+    await db.runTransaction((transaction) async {
+      transaction.set(newDocRef, data);
+    });
+    return await newDocRef.get().then((snap) => Conversation.fromFirestore(snap));
+  }
+
+  Future<void> sendDirectMessage({Conversation? conversation, String? senderId, String? senderName, String? message, XFile? file}) async {
+    DocumentReference newMessageRef = db.collection('direct-messages').doc(conversation?.id).collection('messages').doc();
+    //if has a file, upload to firebase
+    String? downloadUrl;
+    if(file != null) {
+      Reference storageRef = storage.ref('direct-messages/${conversation?.id}/${file.name}');
+      UploadTask uploadTask = storageRef.putFile(File(file.path));
+      TaskSnapshot taskSnap = await uploadTask.whenComplete(() => null);
+      taskSnap.ref.getDownloadURL();
+      downloadUrl = await taskSnap.ref.getDownloadURL();
+    }
+    await db.runTransaction((transaction) {
+      transaction.set(newMessageRef, {
+        'id': newMessageRef.id,
+        'conversation_id': conversation?.id,
+        'sender_id': senderId,
+        'sender_name':  senderName,
+        'message_text': message,
+        'image_url': downloadUrl,
+        'has_image': downloadUrl != null ? true : false,
+        'date_sent': DateTime.now()
+      });
+      return Future.value();
+    });
+    return;
   }
 }
