@@ -253,32 +253,30 @@ class DatabaseServices {
   }
 
   Future<Conversation?> getConversationFromMembers(List<AppUser?> members) {
-    Query query = db.collection('direct-messages');
-    for(AppUser? member in members) {
-      query = query.where('members', arrayContains: member?.id);
-    }
+    List<String?> memberIds = members.map((m) => m?.id).toList();
+    memberIds.sort();
+    Query query = db.collection('direct-messages').where('members', isEqualTo: memberIds);
     return query.get().then((event) {
       return event.docs.isNotEmpty ? event.docs.map((qs) => Conversation.fromFirestore(qs)).first : null;
     });
   }
 
   Stream<Conversation?> streamConversationFromMembers(List<AppUser?> members) {
-    Query query = db.collection('direct-messages');
-    for(AppUser? member in members) {
-      query = query.where('members', arrayContains: member?.id);
-    }
-    print('query: ${query.toString()}');
+    List<String?> memberIds = members.map((m) => m?.id).toList();
+    memberIds.sort();
+    Query query = db.collection('direct-messages').where('members', isEqualTo: memberIds);
     return query.snapshots().map((event) {
-      print('event: ${event.docs}');
       return event.docs.isNotEmpty ? event.docs.map((snap) => Conversation.fromFirestore(snap)).first : null;
     });
   }
 
   Future<Conversation> createConversation(List<AppUser?> members) async {
     DocumentReference newDocRef = db.collection('direct-messages').doc();
+    List<String?> memberIds = members.map((user) => user?.id).toList();
+    memberIds.sort();
     Map<String, dynamic> data = {
       'id': newDocRef.id,
-      'members': members.map((user) => user?.id).toList(),
+      'members': memberIds,
       'member_map': members.map((user) => {'user_id': user?.id, 'unread_messages': 0, 'name': user?.name,}).toList(),
       'last_post_date': DateTime.now(),
     };

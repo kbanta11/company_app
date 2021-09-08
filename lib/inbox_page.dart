@@ -1,3 +1,4 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'direct_message_page.dart';
@@ -73,6 +74,9 @@ class InboxPage extends ConsumerWidget {
                       ),
                     ),
                     onTap: () {
+                      FirebaseAnalytics().logEvent(name: 'view_conversation', parameters: {
+                        'event_date': DateTime.now().millisecondsSinceEpoch
+                      });
                       Navigator.pushReplacement(
                           context, MaterialPageRoute(builder: (context) =>
                           DirectMessagePage(userSnap.data!,)));
