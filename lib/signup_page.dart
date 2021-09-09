@@ -103,7 +103,6 @@ class SignUpPage extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   const Text('Sign Up', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
-                  SizedBox(),
                   Stepper(
                       currentStep: userData.currentStep,
                       onStepContinue: () async {
