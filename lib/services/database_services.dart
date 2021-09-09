@@ -17,7 +17,7 @@ class DatabaseServices {
     return db.collection('users').doc(userId).get().then((snap) => AppUser.fromFirestore(snap));
   }
 
-  Future<void> createUser({String? id, String? name, String? email, String? firstTopic, String? code}) async {
+  Future<void> createUser({String? id, String? name, String? email, TopicModel? firstTopic, String? code}) async {
     DocumentReference docRef = db.collection('users').doc(id);
     await db.runTransaction((transaction) {
       transaction.set(docRef, {
@@ -61,18 +61,32 @@ class DatabaseServices {
     await batch.commit();
   }
 
-  Future<Group> joinGroup({String? topic, String? userId, String? userName}) async {
+  Future<TopicModel?> createTopic({String? topic, List<String>? subTopics}) async {
+    DocumentReference newTopicRef = db.collection('topics').doc();
+    await db.runTransaction((transaction) {
+      transaction.set(newTopicRef, {
+        'id': newTopicRef.id,
+        'topic': topic,
+        'sub-topics': subTopics,
+        'created_date': DateTime.now(),
+      });
+      return Future.value();
+    });
+    return await newTopicRef.get().then((snap) => TopicModel.fromFirestore(snap));
+  }
+
+  Future<Group> joinGroup({TopicModel? topic, String? userId, String? userName}) async {
     Group group;
     //get all groups for this topic that have less than 8 members
-    List<Group> availableGroups = await db.collection('groups').where('topic', isEqualTo: topic).where('num_members', isLessThan: 8).get().then((QuerySnapshot qs) {
+    List<Group> availableGroups = await db.collection('groups').where('topic_id', isEqualTo: topic?.id).where('num_members', isLessThan: 8).get().then((QuerySnapshot qs) {
       return qs.docs.map((docSnap) => Group.fromFirestore(docSnap)).toList();
     });
     availableGroups.removeWhere((element) => element.members!.contains(userId));
-    print('Available Groups: $availableGroups');
+    //print('Available Groups: $availableGroups');
     //if there is a group with less than 3 members, join this group
     if(availableGroups.where((group) => group.numMembers! < 3).isNotEmpty) {
       group = availableGroups.where((group) => group.numMembers! < 3).first;
-      print('Group to join: ${group.id}');
+      //print('Group to join: ${group.id}');
       WriteBatch batch = db.batch();
       //update group to add member
       DocumentReference groupRef = db.collection('groups').doc(group.id);
@@ -101,9 +115,23 @@ class DatabaseServices {
       batch.set(docRef, {
         'id': docRef.id,
         'num_members': 1,
-        'topic': topic,
+        'topic': topic?.topic,
+        'topic_id': topic?.id,
         'members': [userId],
         'code': customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ', 8)
+      });
+      //update topic sheet to increment number in group
+      DocumentReference topicRef = db.collection('topics').doc(topic?.id);
+      int numGroups = await topicRef.get().then((snap) {
+        TopicModel topic = TopicModel.fromFirestore(snap);
+        if(topic.numGroups == null) {
+          return 0;
+        } else {
+          return topic.numGroups!;
+        }
+      });
+      batch.update(topicRef, {
+        'num_groups': numGroups + 1
       });
       //update user doc to add group id to list
       DocumentReference userRef = db.collection('users').doc(userId);
@@ -114,7 +142,7 @@ class DatabaseServices {
         'groups': groups
       });
       await batch.commit();
-      group = Group(id: docRef.id, numMembers: 1, topic: topic, members: [userId!]);
+      group = Group(id: docRef.id, numMembers: 1, topic: topic?.topic, topicId: topic?.id, members: [userId!]);
     } else {
       //otherwise, select random group from available and add member
       int randIndex = Random().nextInt(availableGroups.length);

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
 import './database_services.dart';
+import '../models/group_model.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -9,7 +10,7 @@ class AuthService {
 
   Stream<User?> get authStateChange => _auth.authStateChanges();
 
-  Future<String> signUp({String? email, String? topic, String? name, String? code}) async {
+  Future<String> signUp({String? email, TopicModel? topic, String? name, String? code}) async {
     try {
       final String password = generatePassword();
       UserCredential userCred = await _auth.createUserWithEmailAndPassword(email: email!, password: password);

@@ -1,4 +1,11 @@
+import 'package:algolia/algolia.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:the_company_app/services/topic_services.dart';
+
+import 'create_topic_dialog.dart';
 import 'main.dart';
+import 'models/group_model.dart';
 import 'services/database_services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +16,7 @@ import 'formatters/upper_case_formatter.dart';
 import 'signin_page.dart';
 
 class NewUserData {
-  String? topic;
+  TopicModel? topic;
   String? email;
   bool showEmailError;
   String? name;
@@ -19,11 +26,13 @@ class NewUserData {
   String? groupCode;
   String? groupCodeError;
   bool? joinGroupByCode;
+  bool isLoading;
 
   NewUserData({
     this.topic,
     this.email,
     this.showEmailError = false,
+    this.isLoading = false,
     this.name,
     this.password,
     this.confirmPass,
@@ -33,7 +42,7 @@ class NewUserData {
     this.joinGroupByCode = false
   });
 
-  NewUserData copyWith({String? topic, String? email, bool? emailError, String? name, String? password, String? confirmPassword, int? currentStep, String? groupCode, String? groupCodeError, bool? joinGroupByCode}) {
+  NewUserData copyWith({TopicModel? topic, String? email, bool? emailError, String? name, String? password, String? confirmPassword, int? currentStep, String? groupCode, String? groupCodeError, bool? joinGroupByCode, bool isLoading = false}) {
     return NewUserData(
       topic: topic ?? this.topic,
       email: email ?? this.email,
@@ -44,7 +53,8 @@ class NewUserData {
       currentStep: currentStep ?? this.currentStep,
       groupCode: groupCode ?? this.groupCode,
       groupCodeError: groupCodeError,
-      joinGroupByCode: joinGroupByCode ?? this.joinGroupByCode
+      joinGroupByCode: joinGroupByCode ?? this.joinGroupByCode,
+      isLoading: isLoading,
     );
   }
 }
@@ -52,7 +62,7 @@ class NewUserData {
 class NewUserDataNotifier extends StateNotifier<NewUserData> {
   NewUserDataNotifier() : super(NewUserData());
 
-  changeTopic(String topic) => state = state.copyWith(topic: topic);
+  changeTopic(TopicModel topic) => state = state.copyWith(topic: topic);
   changeGroupCode(String? code) {
     state.groupCode = code;
     state.joinGroupByCode = false;
@@ -69,12 +79,15 @@ class NewUserDataNotifier extends StateNotifier<NewUserData> {
   changeConfirmPass(String pass) => state = state.copyWith(confirmPassword: pass);
   changeStep(int step) => state = state.copyWith(currentStep: step);
   setJoinGroupByCode(bool val) => state = state.copyWith(joinGroupByCode: val);
+  toggleLoading() => state = state.copyWith(isLoading: !(state.isLoading));
 }
 
 final signupProvider = StateNotifierProvider<NewUserDataNotifier, NewUserData>((_) => NewUserDataNotifier());
 final teams = ['All NFL', 'Fantasy Football', 'Arizona Cardinals','Atlanta Falcons','Baltimore Ravens','Buffalo Bills','Carolina Panthers','Chicago Bears','Cincinnati Bengals','Cleveland Browns','Dallas Cowboys','Denver Broncos','Detroit Lions','Green Bay Packers','Houston Texans','Indianapolis Colts','Jacksonville Jaguars','Kansas City Chiefs','Las Vegas Raiders','Los Angeles Chargers','Los Angeles Rams','Miami Dolphins','Minnesota Vikings','New England Patriots','New Orleans Saints','New York Giants','New York Jets','Philadelphia Eagles','Pittsburgh Steelers','San Francisco 49ers','Seattle Seahawks','Tampa Bay Buccaneers','Tennessee Titans','Washington Football Team'];
 
 class SignUpPage extends ConsumerWidget {
+  TextEditingController _topicSearchController = TextEditingController();
+
   @override
   build(BuildContext context, ScopedReader watch) {
     FirebaseAnalytics().setCurrentScreen(screenName: 'signup_page');
@@ -89,6 +102,8 @@ class SignUpPage extends ConsumerWidget {
             child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
+                  const Text('Sign Up', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+                  SizedBox(),
                   Stepper(
                       currentStep: userData.currentStep,
                       onStepContinue: () async {
@@ -128,8 +143,9 @@ class SignUpPage extends ConsumerWidget {
                           if(userData.name == null || userData.name == '') {
                             return;
                           }
+                          //toggle loading indicator
+                          notifier.toggleLoading();
                           ////Create account and send password reset email
-                          //
                           print('Join by code??? - ${userData.joinGroupByCode}: ${userData.groupCode}');
                           if(userData.joinGroupByCode ?? false) {
                             //signup with code
@@ -140,9 +156,9 @@ class SignUpPage extends ConsumerWidget {
                             print('joining with topic');
                             await AuthService().signUp(email: userData.email, name: userData.name, topic: userData.topic);
                           }
-
-                          //FirebaseAnalytics().logSignUp(signUpMethod: 'email_and_password');
-                          //Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MyHomePage()));
+                          FirebaseAnalytics().logSignUp(signUpMethod: 'email_and_password');
+                          notifier.toggleLoading();
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MyHomePage()));
                         }
                       },
                       onStepCancel: () {
@@ -156,7 +172,7 @@ class SignUpPage extends ConsumerWidget {
                           children: [
                             TextButton(
                               style: TextButton.styleFrom(backgroundColor: Colors.blueGrey,),
-                              child: Text(userData.currentStep == 2 ? 'Create Account' : 'Continue', style: const TextStyle(fontSize: 18, color: Colors.white)),
+                              child: userData.isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator()) :  Text(userData.currentStep == 2 ? 'Create Account' : 'Continue', style: const TextStyle(fontSize: 18, color: Colors.white)),
                               onPressed: onStepContinue,
                             ),
                             userData.currentStep != 0 ? TextButton(
@@ -168,20 +184,98 @@ class SignUpPage extends ConsumerWidget {
                       },
                       steps: [
                         Step(
-                            title: const Text('Choose a Team', style: TextStyle(color: Colors.white)),
+                            title: const Text('Choose a Topic', style: TextStyle(color: Colors.white)),
                             content: Column(
                                 children: [
-                                  DropdownButton(
-                                    dropdownColor: Colors.black,
-                                      value: userData.topic,
-                                      onChanged: (String? value) {
-                                        notifier.changeTopic(value ?? userData.topic!);
-                                      },
-                                      style: const TextStyle(color: Colors.white),
-                                      items: teams.map((String item) => DropdownMenuItem(
-                                        child: Text(item),
-                                        value: item,
-                                      )).toList()
+                                  SizedBox(
+                                      width: 300,
+                                      child:TypeAheadField(
+                                          textFieldConfiguration: TextFieldConfiguration(
+                                              controller: _topicSearchController,
+                                              style: const TextStyle(color: Colors.white),
+                                              decoration: const InputDecoration(
+                                                border: OutlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                                                disabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                                                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                                                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                                              )
+                                          ),
+                                          suggestionsCallback: (pattern) async {
+                                            Algolia algolia = Application.algolia;
+                                            AlgoliaQuery query = algolia.instance.index('company-topics').query(pattern);
+                                            return await query.getObjects().then((AlgoliaQuerySnapshot snap) {
+                                              if(snap.hasHits) {
+                                                List<TopicModel?> results = snap.hits.map((AlgoliaObjectSnapshot objSnap) {
+                                                  //print('Obj Data: ${objSnap.data}');
+                                                  return TopicModel(
+                                                    id: objSnap.data['objectID'],
+                                                    topic: objSnap.data['topic'],
+                                                    subTopics: List.castFrom(objSnap.data['sub-topics'] as List),
+                                                  );
+                                                }).toList();
+                                                results.add(TopicModel(topic: 'Create a New Topic'));
+                                                return results;
+                                              }
+                                              return [];
+                                            });
+                                          },
+                                          itemBuilder: (context, suggestion) {
+                                            var topic = suggestion as TopicModel;
+                                            if(topic.topic == 'Create a New Topic') {
+                                              return ListTile(
+                                                  leading: const Icon(Icons.add_circle_outline_rounded),
+                                                  title: Text(topic.topic ?? ''),
+                                                  onTap: () async {
+                                                    TopicModel? topic = await showDialog(
+                                                        context: context,
+                                                        builder: (context) {
+                                                          return CreateTopicDialog(_topicSearchController);
+                                                        }
+                                                    );
+                                                    if(topic != null) {
+                                                      notifier.changeTopic(topic);
+                                                      _topicSearchController.text = topic.topic ?? '';
+                                                    }
+                                                  }
+                                              );
+                                            }
+                                            return ListTile(
+                                              title: Text(topic.topic ?? ''),
+                                            );
+                                          },
+                                          onSuggestionSelected: (suggestion) {
+                                            if(suggestion != null) {
+                                              try {
+                                                TopicModel topic = suggestion as TopicModel;
+                                                if(topic.topic == 'Create a New Topic') {
+                                                  return;
+                                                }
+                                                notifier.changeTopic(topic);
+                                                _topicSearchController.text = topic.topic ?? '';
+                                              } catch (e) {
+                                                return;
+                                              }
+                                            }
+                                          },
+                                        noItemsFoundBuilder: (context) {
+                                            return ListTile(
+                                              leading: const Icon(Icons.add_circle_outline_rounded),
+                                              title: const Text('Create a New Topic'),
+                                              onTap: () async {
+                                                TopicModel? topic = await showDialog(
+                                                  context: context,
+                                                  builder: (context) {
+                                                    return CreateTopicDialog(_topicSearchController);
+                                                  }
+                                                );
+                                                if(topic != null) {
+                                                  notifier.changeTopic(topic);
+                                                  _topicSearchController.text = topic.topic ?? '';
+                                                }
+                                              },
+                                            );
+                                        },
+                                      )
                                   ),
                                   const SizedBox(height: 5),
                                   const Text('-- OR --', style: TextStyle(color: Colors.white)),

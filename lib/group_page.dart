@@ -1,7 +1,6 @@
 import 'package:intl/intl.dart';
 import 'dart:io';
 import 'direct_message_page.dart';
-import 'models/direct_message_models.dart';
 import 'signin_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
