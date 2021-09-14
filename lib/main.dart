@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
-import 'package:the_company_app/services/database_services.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'direct_message_page.dart';
 import 'providers/auth_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,10 +14,12 @@ import 'group_page.dart';
 import 'join_group_page.dart';
 import 'inbox_page.dart';
 import 'providers/auth_providers.dart';
+import 'services/database_services.dart';
 import 'providers/user_groups_provider.dart';
 import 'services/auth_services.dart';
 import 'models/group_model.dart';
 import 'models/user_model.dart';
+import 'menu_drawer.dart';
 
 void main() {
   runApp(const ProviderScope(
@@ -58,7 +62,7 @@ class MainAppState extends State<MainApp> {
                       if(value != null) {
                         analytics.logLogin();
                         analytics.setUserId(value.uid);
-                        return MyHomePage();
+                        return HomePageWrapper();
                       }
                       return SignUpPage();
                     },
@@ -87,11 +91,114 @@ class MainAppState extends State<MainApp> {
   }
 }
 
+class HomePageWrapper extends StatefulWidget {
+  @override
+  _HomePageWrapperState createState() => _HomePageWrapperState();
+}
+
+class _HomePageWrapperState extends State<HomePageWrapper> {
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+
+  Future<void> registerNotifications(Future<AppUser?> userFuture) async {
+    AppUser? currentUser = await userFuture;
+    //setup firebase cloud messaging, request permissions for iOS
+    NotificationSettings settings = await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        announcement: false,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: true
+    );
+
+    //check if authorized or not to set user settings in firestore
+    if(settings.authorizationStatus == AuthorizationStatus.authorized) {
+      await DatabaseServices().updateNotificationSettings(currentUser, allNotifications: true);
+    }
+
+    //get token to save in firestore
+    String? token = await  _messaging.getToken();
+    await DatabaseServices().updateUserTokens(token, currentUser);
+    //print('token saved: $token');
+    _messaging.onTokenRefresh.listen((token) => DatabaseServices().updateUserTokens(token, currentUser));
+
+    //handle receiving notifications and messages
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      //print('Received a message: ${message.notification?.title} / ${message.data} (toast)');
+      Fluttertoast.showToast(
+        msg: message.notification?.title ?? 'You have a new message',
+        gravity: ToastGravity.TOP,
+        backgroundColor: Colors.red,
+        toastLength: Toast.LENGTH_LONG,
+        textColor: Colors.white,
+      );
+    });
+
+    FirebaseMessaging.onBackgroundMessage(_backgroundMessageHandler);
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
+      //print('opened message from notification, ${message.notification?.title} / ${message.data}');
+      String? groupId = message.data['group_id'];
+      String? dmId = message.data['dm_user_id'];
+      //print('group id: $groupId, dmId: $dmId');
+      if(groupId != null) {
+        //get group data to pass to page
+        //print('getting group');
+        Group group = await DatabaseServices().getGroup(groupId);
+        //print('group: $group');
+        Navigator.of(context).push(MaterialPageRoute(builder: (context) => GroupPage(group: group)));
+        return;
+      }
+      if(dmId != null) {
+        //get user data and object to send to
+        AppUser user = await DatabaseServices().getAppUser(dmId);
+        Navigator.of(context).push(MaterialPageRoute(builder: (context) => DirectMessagePage(user)));
+        return;
+      }
+    });
+
+    _messaging.getInitialMessage().then((message) async {
+      if(message != null) {
+        //print('get initial message, ${message.notification?.title} / ${message.data}');
+        String? groupId = message.data['group_id'];
+        String? dmId = message.data['dm_user_id'];
+        //print('group id: $groupId, dmId: $dmId');
+        if(groupId != null) {
+          //get group data to pass to page
+          //print('getting group');
+          Group group = await DatabaseServices().getGroup(groupId);
+          //print('group: $group');
+          Navigator.of(context).push(MaterialPageRoute(builder: (context) => GroupPage(group: group)));
+          return;
+        }
+        if(dmId != null) {
+          //get user data and object to send to
+          AppUser user = await DatabaseServices().getAppUser(dmId);
+          Navigator.of(context).push(MaterialPageRoute(builder: (context) => DirectMessagePage(user)));
+          return;
+        }
+      }
+    });
+  }
+
+  @override
+  initState() {
+    super.initState();
+    Future<AppUser?> currentUser = context.read(appUserProvider.last).then((user) => user);
+    registerNotifications(currentUser);
+  }
+
+  @override
+  build(BuildContext context) {
+    return MyHomePage();
+  }
+}
 
 class MyHomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, ScopedReader watch) {
     List<Group>? myGroups = watch(userGroupsProvider).data?.value;
+    myGroups?.sort((a, b) => b.lastMessageDate?.compareTo(a.lastMessageDate ?? DateTime(2000, 1, 1)) ?? 0);
     AppUser? currentUser = watch(appUserProvider).data?.value;
     FirebaseAnalytics().setCurrentScreen(screenName: 'home_page');
     return Scaffold(
@@ -99,39 +206,10 @@ class MyHomePage extends ConsumerWidget {
       appBar: AppBar(
         iconTheme: const IconThemeData(color: Colors.white),
         backgroundColor: const Color(0xFF262626),
+        leading: DrawerButton(currentUser),
         title: const Text('My Company', style: TextStyle(color: Colors.white),),
       ),
-      drawer: Drawer(
-        child: ListView(
-          children: [
-            ListTile(
-              title: const Text('Home'),
-              onTap: () {
-
-              }
-            ),
-            ListTile(
-              title: const Text('Join Another Group'),
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => JoinGroupPage()));
-              }
-            ),
-            ListTile(
-                title: const Text('Messages'),
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => InboxPage()));
-                }
-            ),
-            ListTile(
-              title: const Text('Logout'),
-              onTap: () async {
-                await AuthService().logout();
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => SignInPage()));
-              }
-            ),
-          ]
-        )
-      ),
+      drawer: MenuDrawer('home-page'),
       body: Center(
         child: ListView(
           children: myGroups == null ? [Center(
@@ -147,13 +225,30 @@ class MyHomePage extends ConsumerWidget {
                   Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => JoinGroupPage()));
                 },
               )] : myGroups.map((Group group) {
+                int? userUnread = group.memberMap?[currentUser?.id]?['unread'];
                 return InkWell(
                   child: Card(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                     elevation: 5.0,
                     child: Container(
                         padding: const EdgeInsets.all(15),
-                        child: Text(group.topic ?? 'Error loading group!', style: const TextStyle(fontSize: 18))
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(group.topic ?? 'Error loading group!', style: const TextStyle(fontSize: 18)),
+                            userUnread != null && userUnread > 0 ? Container(
+                              height: 20,
+                              width: 20,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.red,
+                              ),
+                              child: Center(
+                                child: Text('$userUnread', style: const TextStyle(color: Colors.white)),
+                              )
+                            ) : Container(),
+                          ]
+                        )
                     ),
                   ),
                   onTap: () {
@@ -163,6 +258,7 @@ class MyHomePage extends ConsumerWidget {
                       'user_id': currentUser?.id,
                       'event_date': DateTime.now().millisecondsSinceEpoch,
                     });
+                    DatabaseServices().markGroupMessagesRead(group, currentUser);
                     Navigator.push(context, MaterialPageRoute(builder: (context) => GroupPage(group: group)));
                   }
                 );
@@ -171,4 +267,9 @@ class MyHomePage extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<void> _backgroundMessageHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  //print('received background notifcation: ${message.notification} / ${message.data}');
 }

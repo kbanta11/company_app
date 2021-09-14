@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:algolia/algolia.dart';
 import 'create_topic_dialog.dart';
+import 'menu_drawer.dart';
 import 'services/auth_services.dart';
 import 'formatters/upper_case_formatter.dart';
 import 'signin_page.dart';
@@ -47,39 +48,10 @@ class JoinGroupPage extends ConsumerWidget {
       appBar: AppBar(
         iconTheme: const IconThemeData(color: Colors.white),
         backgroundColor: const Color(0xFF262626),
+        leading: DrawerButton(currentUser),
         title: const Text('Join Group', style: TextStyle(color: Colors.white)),
       ),
-      drawer: Drawer(
-          child: ListView(
-              children: [
-                ListTile(
-                    title: const Text('Home'),
-                    onTap: () {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MyHomePage()));
-                    }
-                ),
-                ListTile(
-                    title: const Text('Join Another Group'),
-                    onTap: () {
-
-                    }
-                ),
-                ListTile(
-                    title: const Text('Messages'),
-                    onTap: () {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => InboxPage()));
-                    }
-                ),
-                ListTile(
-                    title: const Text('Logout'),
-                    onTap: () async {
-                      await AuthService().logout();
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => SignInPage()));
-                    }
-                ),
-              ]
-          )
-      ),
+      drawer: MenuDrawer('join-group'),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -179,8 +151,8 @@ class JoinGroupPage extends ConsumerWidget {
               )
             ),
             TextButton(
-              style: TextButton.styleFrom(backgroundColor: Colors.blueGrey),
-              child: const Text('Find A Group', style: TextStyle(fontSize: 16, color: Colors.white)),
+              style: TextButton.styleFrom(backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
+              child: const Text('Find A Group', style: TextStyle(fontSize: 16, color: Colors.black)),
               onPressed: () async {
                 if(topic != null && topic != '') {
                   Group newGroup = await DatabaseServices().joinGroup(topic: topic, userId: currentUser?.id, userName: currentUser?.name);
@@ -213,8 +185,8 @@ class JoinGroupPage extends ConsumerWidget {
               ),
             ),
             TextButton(
-              style: TextButton.styleFrom(backgroundColor: Colors.blueGrey),
-              child: const Text('Join Group', style: TextStyle(fontSize: 16, color: Colors.white)),
+              style: TextButton.styleFrom(backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
+              child: const Text('Join Group', style: TextStyle(fontSize: 16, color: Colors.black)),
               onPressed: () async {
                 codeErrorNotifier.updateErrorText(null);
                 if(codeController.value.text.length == 8) {

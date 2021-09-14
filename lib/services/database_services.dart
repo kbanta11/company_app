@@ -12,6 +12,34 @@ class DatabaseServices {
   final FirebaseFirestore db = FirebaseFirestore.instance;
   final FirebaseStorage storage = FirebaseStorage.instance;
 
+  /*
+  Future<void> seedGroupData() async {
+    WriteBatch batch = db.batch();
+
+    await db.collection('groups').get().then((qs) async {
+      for(var doc in qs.docs) {
+        Group group = Group.fromFirestore(doc);
+        //update group last message date
+        //get all messages for group, then check most recent date or set to 1/1/2000 otherwise
+        List<Message> messages = await group.getMessages().first;
+        Map<String, dynamic> memberMap = Map<String, dynamic>();
+        for(var member in group.members ?? []) {
+          memberMap[member] = {
+            'unread': 1,
+            'last_seen': DateTime(2000, 1, 1),
+          };
+        }
+        batch.update(doc.reference, {
+          'last_message_date': messages.isNotEmpty ? messages.first.dateSent : DateTime(2000, 1, 1),
+          'member_map': memberMap
+        });
+      }
+    });
+    await batch.commit();
+    print('Updated group documents');
+  }
+   */
+
   //User Functions
   Future<AppUser> getAppUser(String userId) async {
     return db.collection('users').doc(userId).get().then((snap) => AppUser.fromFirestore(snap));
@@ -36,6 +64,42 @@ class DatabaseServices {
     return;
   }
 
+  Future<void> updateUserTokens(String? token, AppUser? user) async {
+    DocumentReference userDoc = db.collection('users').doc(user?.id);
+    await db.runTransaction((transaction) {
+      transaction.update(userDoc, {
+        'tokens': FieldValue.arrayUnion([token])
+      });
+      return Future.value();
+    });
+  }
+
+  Future<void> updateNotificationSettings(AppUser? currentUser, {bool? allNotifications, bool? directMessages, bool? groupMessages, bool? other}) async {
+    DocumentReference userDoc = db.collection('users').doc(currentUser?.id);
+    await db.runTransaction((transaction) async {
+      transaction.update(userDoc, {
+        'all_notifications': allNotifications ?? await userDoc.get().then((snap) {
+          Map<String, dynamic> data = snap.data() as Map<String, dynamic>;
+          return data['all_notifications'];
+        }),
+        'direct_message_notifications': directMessages ?? await userDoc.get().then((snap) {
+          Map<String, dynamic> data = snap.data() as Map<String, dynamic>;
+          return data['direct_message_notifications'];
+        }),
+        'group_message_notifications': groupMessages ?? await userDoc.get().then((snap) {
+          Map<String, dynamic> data = snap.data() as Map<String, dynamic>;
+          return data['group_message_notifications'];
+        }),
+        'other_notifications': other ?? await userDoc.get().then((snap) {
+          Map<String, dynamic> data = snap.data() as Map<String, dynamic>;
+          return data['other_notifications'];
+        }),
+      });
+      return Future.value();
+    });
+    return;
+  }
+
   Stream<AppUser> streamUserData(String uid) {
     DocumentReference docRef = db.collection('users').doc(uid);
     return docRef.snapshots().map((DocumentSnapshot snap) => AppUser.fromFirestore(snap));
@@ -49,9 +113,13 @@ class DatabaseServices {
     WriteBatch batch = db.batch();
     //remove user id from list of members and decrement number of members for group
     group.members?.removeWhere((element) => element == user.id);
+    if(user.id != null && (group.memberMap?.containsKey(user.id) ?? false)) {
+      group.memberMap?.remove(user.id);
+    }
     batch.update(groupRef, {
       'members': group.members,
       'num_members': group.numMembers! - 1,
+      'member_map': group.memberMap
     });
     //remove group id from users list of groups
     user.groups?.removeWhere((element) => element == group.id);
@@ -92,9 +160,14 @@ class DatabaseServices {
       DocumentReference groupRef = db.collection('groups').doc(group.id);
       group.numMembers = group.numMembers! + 1;
       group.members!.add(userId!);
+      group.memberMap?[userId] = {
+        'unread': 1,
+        'last_seen': DateTime.now(),
+      };
       batch.update(groupRef, {
         'num_members': group.numMembers,
         'members': group.members,
+        'member_map': group.memberMap
       });
       //update user doc to add group id to list
       DocumentReference userRef = db.collection('users').doc(userId);
@@ -118,7 +191,12 @@ class DatabaseServices {
         'topic': topic?.topic,
         'topic_id': topic?.id,
         'members': [userId],
-        'code': customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ', 8)
+        'code': customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ', 8),
+        'last_message_date': DateTime.now(),
+        'member_map': {userId: {
+          'last_seen': DateTime.now(),
+          'unread': 0,
+        }}
       });
       //update topic sheet to increment number in group
       DocumentReference topicRef = db.collection('topics').doc(topic?.id);
@@ -152,9 +230,14 @@ class DatabaseServices {
       DocumentReference groupRef = db.collection('groups').doc(group.id);
       group.numMembers = group.numMembers! + 1;
       group.members!.add(userId!);
+      group.memberMap?[userId] = {
+        'unread': 1,
+        'last_seen': DateTime.now(),
+      };
       batch.update(groupRef, {
         'num_members': group.numMembers,
         'members': group.members,
+        'member_map': group.memberMap,
       });
       //update user doc to add group id to list
       DocumentReference userRef = db.collection('users').doc(userId);
@@ -187,9 +270,14 @@ class DatabaseServices {
     DocumentReference groupRef = db.collection('groups').doc(group.id);
     group.numMembers = group.numMembers! + 1;
     group.members!.add(userId!);
+    group.memberMap?[userId] = {
+      'unread': 1,
+      'last_seen': DateTime.now(),
+    };
     batch.update(groupRef, {
       'members': group.members,
-      'num_members': group.numMembers
+      'num_members': group.numMembers,
+      'member_map': group.memberMap
     });
     //add group to user
     DocumentReference userRef = db.collection('users').doc(userId);
@@ -216,6 +304,10 @@ class DatabaseServices {
     return group == null ? false : true;
   }
 
+  Future<Group> getGroup(String groupId) async {
+    return db.collection('groups').doc(groupId).get().then((snap) => Group.fromFirestore(snap));
+  }
+
   Stream<List<Group>> getAllGroups({String? userId}) {
     return db.collection('groups').where('members', arrayContains: userId).snapshots().map((event) {
       return event.docs.map((snap) {
@@ -235,6 +327,8 @@ class DatabaseServices {
   }
 
   Future<void> sendMessageToGroup({String? groupId, String? senderId, String? senderName, String? message, XFile? file}) async {
+    WriteBatch batch = db.batch();
+    DocumentReference groupRef = db.collection('groups').doc(groupId);
     DocumentReference newMessageRef = db.collection('groups').doc(groupId).collection('messages').doc();
     //if has a file, upload to firebase
     String? downloadUrl;
@@ -245,20 +339,48 @@ class DatabaseServices {
       taskSnap.ref.getDownloadURL();
       downloadUrl = await taskSnap.ref.getDownloadURL();
     }
-    await db.runTransaction((transaction) {
-      transaction.set(newMessageRef, {
-        'id': newMessageRef.id,
-        'group_id': groupId,
-        'sender_id': senderId,
-        'sender_name':  senderName,
-        'message_text': message,
-        'image_url': downloadUrl,
-        'has_image': downloadUrl != null ? true : false,
-        'date_sent': DateTime.now()
-      });
-      return Future.value();
+    //update member map to increment other users unread
+    //update group time last message sent and increment unread message count for all other users
+    Group? group = await groupRef.get().then((snap) => Group.fromFirestore(snap));
+    print('old member map: ${group?.memberMap}');
+    if(group?.memberMap != null && (group?.memberMap?.isNotEmpty ?? false)) {
+      List<String>? keyList = group?.memberMap?.keys.toList();
+      for(var key in keyList ?? []) {
+        if(key != senderId) {
+          group?.memberMap?[key]?['unread'] = (group.memberMap?[key]?['unread'] ?? 0) + 1;
+        }
+      }
+    }
+    print('new member map: ${group?.memberMap}');
+    batch.update(groupRef, {
+      'last_message_date': DateTime.now(),
+      'member_map': group?.memberMap
     });
+    print('updated group data');
+    //add new doc for message
+    batch.set(newMessageRef, {
+      'id': newMessageRef.id,
+      'group_id': groupId,
+      'sender_id': senderId,
+      'sender_name':  senderName,
+      'message_text': message,
+      'image_url': downloadUrl,
+      'has_image': downloadUrl != null ? true : false,
+      'date_sent': DateTime.now()
+    });
+    await batch.commit();
     return;
+  }
+
+  Future<void> markGroupMessagesRead(Group? group, AppUser? user) async {
+    DocumentReference groupRef = db.collection('groups').doc(group?.id);
+    group?.memberMap?[user?.id]?['unread'] = 0;
+    group?.memberMap?[user?.id]?['last_seen'] = DateTime.now();
+    await db.runTransaction((transaction) async {
+      transaction.update(groupRef, {
+        'member_map': group?.memberMap,
+      });
+    });
   }
 
   //Inbox/Messaging Functions
@@ -292,6 +414,7 @@ class DatabaseServices {
   Stream<Conversation?> streamConversationFromMembers(List<AppUser?> members) {
     List<String?> memberIds = members.map((m) => m?.id).toList();
     memberIds.sort();
+    print('sorted ids: $memberIds');
     Query query = db.collection('direct-messages').where('members', isEqualTo: memberIds);
     return query.snapshots().map((event) {
       return event.docs.isNotEmpty ? event.docs.map((snap) => Conversation.fromFirestore(snap)).first : null;
@@ -315,6 +438,7 @@ class DatabaseServices {
   }
 
   Future<void> sendDirectMessage({Conversation? conversation, String? senderId, String? senderName, String? message, XFile? file}) async {
+    WriteBatch batch = db.batch();
     DocumentReference newMessageRef = db.collection('direct-messages').doc(conversation?.id).collection('messages').doc();
     //if has a file, upload to firebase
     String? downloadUrl;
@@ -325,19 +449,61 @@ class DatabaseServices {
       taskSnap.ref.getDownloadURL();
       downloadUrl = await taskSnap.ref.getDownloadURL();
     }
-    await db.runTransaction((transaction) {
-      transaction.set(newMessageRef, {
-        'id': newMessageRef.id,
-        'conversation_id': conversation?.id,
-        'sender_id': senderId,
-        'sender_name':  senderName,
-        'message_text': message,
-        'image_url': downloadUrl,
-        'has_image': downloadUrl != null ? true : false,
-        'date_sent': DateTime.now()
-      });
-      return Future.value();
+    batch.set(newMessageRef, {
+      'id': newMessageRef.id,
+      'conversation_id': conversation?.id,
+      'sender_id': senderId,
+      'sender_name':  senderName,
+      'message_text': message,
+      'image_url': downloadUrl,
+      'has_image': downloadUrl != null ? true : false,
+      'date_sent': DateTime.now()
     });
+    //increment unread messages for each user in conversation and on user doc
+    List<ConversationMember> members = [];
+    for(ConversationMember member in conversation!.memberMap ?? []) {
+      if(member.userId != senderId) {
+        //increment unread_messages in convo member map
+        member.unreadMessages = (member.unreadMessages ?? 0) + 1;
+        //get user data and increment unread direct messages
+        AppUser user = await getAppUser(member.userId!);
+        DocumentReference userRef = db.collection('users').doc(member.userId);
+        batch.update(userRef, {
+          'unread_direct_messages': user.unreadDirectMessages + 1
+        });
+      }
+      members.add(member);
+    }
+    //update direct message doc
+    DocumentReference convoRef = db.collection('direct-messages').doc(conversation.id);
+    batch.update(convoRef, {
+      'last_post_date': DateTime.now(),
+      'member_map': members.map((member) => member.toMap()).toList()
+    });
+    await batch.commit();
     return;
+  }
+
+  Future<void> markDirectMessagesRead(Conversation? conversation, AppUser? user) async  {
+    WriteBatch batch = db.batch();
+    ConversationMember? member = conversation?.memberMap?.firstWhere((element) => element.userId == user?.id, orElse: null);
+    int memberUnread = member?.unreadMessages ?? 0;
+    //Mark conversation unread to 0
+    DocumentReference convoRef = db.collection('direct-messages').doc(conversation?.id);
+    batch.update(convoRef, {
+      'member_map': conversation?.memberMap?.map((member) {
+        if(member.userId == user?.id) {
+          member.unreadMessages = 0;
+        }
+        return member.toMap();
+      }).toList()
+    });
+    //decrement user total unread
+    DocumentReference userRef = db.collection('users').doc(user?.id);
+    //print('user unread: ${user?.unreadDirectMessages}, member unread: $memberUnread');
+    batch.update(userRef, {
+      'unread_direct_messages': max((user?.unreadDirectMessages ?? 0) - memberUnread, 0)
+    });
+    await batch.commit();
   }
 }

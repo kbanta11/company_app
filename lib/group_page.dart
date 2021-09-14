@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import 'dart:io';
 import 'direct_message_page.dart';
+import 'menu_drawer.dart';
 import 'signin_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
@@ -35,6 +36,7 @@ class GroupPage extends ConsumerWidget {
       appBar: AppBar(
         iconTheme: const IconThemeData(color: Colors.white),
         backgroundColor: const Color(0xFF262626),
+        leading: DrawerButton(currentUser),
         title: Text(group?.topic ?? 'Company', style: const TextStyle(color: Colors.white)),
         actions: [
           IconButton(
@@ -79,7 +81,7 @@ class GroupPage extends ConsumerWidget {
                                           },
                                         ),
                                         TextButton(
-                                          style: TextButton.styleFrom(backgroundColor: Colors.blueGrey),
+                                          style: TextButton.styleFrom(backgroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
                                           child: const Text('Leave Group', style: TextStyle(color: Colors.white)),
                                           onPressed: () async {
                                             await DatabaseServices().leaveGroup(group: group, user: currentUser);
@@ -136,37 +138,7 @@ class GroupPage extends ConsumerWidget {
           )
         ],
       ),
-      drawer: Drawer(
-          child: ListView(
-              children: [
-                ListTile(
-                    title: const Text('Home'),
-                    onTap: () {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MyHomePage()));
-                    }
-                ),
-                ListTile(
-                    title: const Text('Join Another Group'),
-                    onTap: () {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => JoinGroupPage()));
-                    }
-                ),
-                ListTile(
-                  title: const Text('Messages'),
-                  onTap: () {
-                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => InboxPage()));
-                  }
-                ),
-                ListTile(
-                    title: const Text('Logout'),
-                    onTap: () async {
-                      await AuthService().logout();
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => SignInPage()));
-                    }
-                ),
-              ]
-          )
-      ),
+      drawer: MenuDrawer(null),
       body: StreamBuilder<List<Message>>(
         stream: DatabaseServices().getMessagesForGroup(groupId: group?.id),
         builder: (context, AsyncSnapshot<List<Message>> snap) {

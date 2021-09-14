@@ -80,8 +80,9 @@ class SignInPage extends ConsumerWidget {
                           notifier.changePass(value);
                         },
                       ),
+                      SizedBox(height: 10),
                       TextButton(
-                          style: TextButton.styleFrom(backgroundColor: Colors.blueGrey),
+                          style: TextButton.styleFrom(backgroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
                           child: const Text('Sign In', style: TextStyle(fontSize: 18, color: Colors.white),),
                           onPressed: () async {
                             if(signInData.email == null) {
@@ -137,7 +138,7 @@ class SignInPage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 10),
                       TextButton(
-                        child: const Text('Sign Up!', style: TextStyle(fontSize: 16)),
+                        child: const Text('Sign Up!', style: TextStyle(fontSize: 16, color: Colors.black)),
                         onPressed: () {
                           Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => SignUpPage()));
                         },
@@ -170,7 +171,7 @@ class ResetPasswordDialog extends ConsumerWidget {
           },
         ),
         TextButton(
-          style: TextButton.styleFrom(backgroundColor: Colors.blueGrey),
+          style: TextButton.styleFrom(backgroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
           child: const Text('Reset Password', style: TextStyle(color: Colors.white),),
           onPressed: () async {
             //print('Reset Email: ${signInData.resetEmail}');

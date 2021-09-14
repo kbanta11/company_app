@@ -170,8 +170,8 @@ class SignUpPage extends ConsumerWidget {
                         return Row(
                           children: [
                             TextButton(
-                              style: TextButton.styleFrom(backgroundColor: Colors.blueGrey,),
-                              child: userData.isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator()) :  Text(userData.currentStep == 2 ? 'Create Account' : 'Continue', style: const TextStyle(fontSize: 18, color: Colors.white)),
+                              style: TextButton.styleFrom(backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
+                              child: userData.isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator()) :  Text(userData.currentStep == 2 ? 'Create Account' : 'Continue', style: const TextStyle(fontSize: 18, color: Colors.black)),
                               onPressed: onStepContinue,
                             ),
                             userData.currentStep != 0 ? TextButton(

@@ -5,12 +5,14 @@ class AppUser {
   String? name;
   String? email;
   List<String>? groups;
+  int unreadDirectMessages;
 
   AppUser({
     this.id,
     this.name,
     this.email,
-    this.groups
+    this.groups,
+    this.unreadDirectMessages = 0
   });
 
   factory AppUser.fromFirestore(DocumentSnapshot snap) {
@@ -20,6 +22,7 @@ class AppUser {
       name: data['name'],
       email: data['email'],
       groups: List.castFrom(data['groups'] as List),
+      unreadDirectMessages: data['unread_direct_messages'] ?? 0
     );
   }
 }

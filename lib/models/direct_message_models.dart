@@ -7,6 +7,14 @@ class ConversationMember {
 
   ConversationMember({this.userId, this.name, this.unreadMessages});
 
+  toMap() {
+    return {
+      'name': name,
+      'unread_messages': unreadMessages,
+      'user_id': userId,
+    };
+  }
+
   factory ConversationMember.fromMap(Map data) {
     return ConversationMember(
       userId: data['user_id'],
@@ -34,7 +42,7 @@ class Conversation {
     return Conversation(
       id: data['id'],
       members: List.castFrom(data['members'] as List),
-      memberMap: List.castFrom(data['member_map'] as List),
+      memberMap: List.castFrom(data['member_map'] as List).map((element) => ConversationMember.fromMap(element)).toList(),
       lastPostDate: DateTime.fromMillisecondsSinceEpoch(data['last_post_date'].millisecondsSinceEpoch),
     );
   }

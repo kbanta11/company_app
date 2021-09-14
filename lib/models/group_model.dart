@@ -35,6 +35,8 @@ class Group {
   List<String>? members;
   String? code;
   String? topicId;
+  DateTime? lastMessageDate;
+  Map<String, dynamic>? memberMap;
 
   Group({
     this.id,
@@ -42,7 +44,9 @@ class Group {
     this.topic,
     this.members,
     this.code,
-    this.topicId
+    this.topicId,
+    this.lastMessageDate,
+    this.memberMap
   });
 
   factory Group.fromFirestore(DocumentSnapshot snap) {
@@ -53,7 +57,9 @@ class Group {
       topic: data['topic'],
       topicId: data['topic_id'],
       members: List.castFrom(data['members'] as List),
-      code: data['code']
+      code: data['code'],
+      lastMessageDate: data['last_message_date'] == null ? null : DateTime.fromMillisecondsSinceEpoch(data['last_message_date'].millisecondsSinceEpoch),
+      memberMap: data['member_map'] == null ? null :data['member_map'] as Map<String, dynamic>,
     );
   }
 
